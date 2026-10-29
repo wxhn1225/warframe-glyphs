@@ -1,4 +1,4 @@
-import { CHANNELS, DEFAULT_STATE, FEATURED, NO_SPEND, SORTS, STATUS_LABEL, STATUSES, TIERS, bestWay, facetCount, prepare, readState, results, writeState } from "./catalog.js";
+import { CHANNELS, DEFAULT_STATE, FEATURED, NO_SPEND, SORTS, STATUS_LABEL, STATUSES, TIERS, bestWay, facetCount, prepare, readState, refreshStatus, results, writeState } from "./catalog.js";
 import { describe, rank, readIndex, similarity } from "./similar.js";
 
 const $ = (id) => document.getElementById(id);
@@ -36,7 +36,7 @@ let byId = new Map();
 let list = [];
 let state = readState(location.search);
 let current = null;
-let density = load(DENSITY_KEY, "cozy") === "dense" ? "dense" : "cozy";
+let density = loadText(DENSITY_KEY) === "dense" ? "dense" : "cozy";
 const nodes = new Map();
 const saved = new Set(load(SAVED_KEY, []).filter((x) => typeof x === "string"));
 
@@ -46,6 +46,13 @@ function load(key, fallback) {
     return v == null ? fallback : JSON.parse(v);
   } catch {
     return fallback;
+  }
+}
+function loadText(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
   }
 }
 function keep(key, value) {
@@ -229,7 +236,8 @@ function render() {
   pick(menus.sort, state.sort, SORTS.find((s) => s.key === state.sort).label);
   if (document.activeElement !== ui.q && ui.q.value !== state.q) ui.q.value = state.q;
   ui.saved.setAttribute("aria-pressed", String(state.saved));
-  ui.savedCount.textContent = num.format(saved.size);
+  showSavedCount();
+  if (ui.detail.open) updateNav();
 
   history.replaceState(history.state, "", writeState(state) + location.hash || location.pathname);
 }
@@ -309,11 +317,19 @@ function fill(g) {
   if (open.length && past.length) blocks.push(el("details", { class: "past" }, el("summary", { text: `已结束的获取方式（${past.length}）` }), ...past.map(wayCard)));
   ui.dWays.replaceChildren(...blocks);
 
-  const i = list.findIndex((x) => x.id === g.id);
-  ui.dPos.textContent = i >= 0 ? `${num.format(i + 1)} / ${num.format(list.length)}` : "";
-  ui.detail.querySelector(".prev").disabled = i <= 0;
-  ui.detail.querySelector(".next").disabled = i < 0 || i >= list.length - 1;
+  updateNav();
   ui.detail.querySelector(".info").scrollTop = 0;
+}
+
+// 详情所在的位置；这一枚已不在列表里时（比如在收藏里刚取消收藏）沿用它原来的位置
+let anchor = 0;
+
+function updateNav() {
+  const i = list.findIndex((x) => x.id === current);
+  if (i >= 0) anchor = i;
+  ui.dPos.textContent = i >= 0 ? `${num.format(i + 1)} / ${num.format(list.length)}` : `共 ${num.format(list.length)} 枚`;
+  ui.detail.querySelector(".prev").disabled = anchor <= 0;
+  ui.detail.querySelector(".next").disabled = i >= 0 ? anchor >= list.length - 1 : anchor >= list.length;
 }
 
 // 从列表打开的详情占一条历史记录，关闭时退回；从链接直接打开的不占
@@ -367,10 +383,11 @@ ui.detail.addEventListener("close", () => {
 // 在详情里切换时，背后的列表跟着翻到同一页，关闭后焦点落在这一枚上
 function step(dir) {
   const i = list.findIndex((x) => x.id === current);
-  const next = list[i + dir];
-  if (i < 0 || !next) return;
+  const target = i >= 0 ? i + dir : dir > 0 ? anchor : anchor - 1;
+  const next = list[target];
+  if (!next) return;
   openDetail(next.id, { push: false });
-  const page = Math.floor((i + dir) / pageSize()) + 1;
+  const page = Math.floor(target / pageSize()) + 1;
   if (page !== state.page) {
     state = { ...state, page };
     render();
@@ -379,7 +396,13 @@ function step(dir) {
 
 function syncFromHash() {
   const id = location.hash.slice(1);
-  if (id && byId.has(id)) return openDetail(id, { push: false });
+  if (id && byId.has(id)) {
+    // 用前进键回到的详情是之前从列表打开时留下的记录，关闭时同样退回
+    const ours = Boolean(history.state?.detail);
+    openDetail(id, { push: false });
+    pushed = ours;
+    return;
+  }
   if (ui.detail.open) {
     closingFromHistory = true;
     closeDetail();
@@ -422,16 +445,26 @@ function toggleSaved(id) {
     ui.dFav.lastChild.textContent = on ? "已收藏" : "收藏";
   }
   if (state.saved) render();
-  else ui.savedCount.textContent = num.format(saved.size);
+  else showSavedCount();
   toast(on ? "已加入收藏" : "已取消收藏");
+}
+
+// 窄屏只显示数字，按钮名称写全
+function showSavedCount() {
+  ui.savedCount.textContent = num.format(saved.size);
+  ui.saved.setAttribute("aria-label", `收藏，${num.format(saved.size)} 枚`);
 }
 
 let toastTimer = 0;
 function toast(text) {
-  ui.toast.textContent = text;
-  ui.toast.classList.add("show");
+  ui.toast.replaceChildren(icon("check"), text);
+  // 每次重新放到最上层，压在已打开的详情上面
+  if (ui.toast.showPopover) {
+    if (ui.toast.matches(":popover-open")) ui.toast.hidePopover();
+    ui.toast.showPopover();
+  } else ui.toast.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => ui.toast.classList.remove("show"), 1800);
+  toastTimer = setTimeout(() => (ui.toast.hidePopover ? ui.toast.hidePopover() : ui.toast.classList.remove("show")), 1800);
 }
 
 async function copy(text, done) {
@@ -452,6 +485,9 @@ async function copy(text, done) {
 
 let indexReady = null;
 let lensUrl = "";
+let lensTop = [];
+// 连续选了几张图时，只显示最后一张的结果
+let lensRun = 0;
 const indexOnce = () => (indexReady ??= fetch("data/similar.bin").then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(r.statusText)))).then(readIndex));
 
 async function pixelsOf(file) {
@@ -469,6 +505,7 @@ async function pixelsOf(file) {
 
 async function searchImage(file) {
   if (!file?.type.startsWith("image/")) return;
+  const run = ++lensRun;
   if (ui.detail.open) closeDetail();
   URL.revokeObjectURL(lensUrl);
   lensUrl = URL.createObjectURL(file);
@@ -479,23 +516,35 @@ async function searchImage(file) {
   $("gallery").scrollIntoView({ block: "start", behavior: reduceMotion.matches ? "auto" : "smooth" });
   try {
     const [index, img] = await Promise.all([indexOnce(), pixelsOf(file)]);
-    const top = rank(index, describe(img.px, img.w, img.h), 12);
-    ui.lensGrid.replaceChildren(
-      ...top.map(({ i, d }) => {
-        const g = glyphs[i];
-        const tile = tileButton(g);
-        paintTile(tile, g, bestWay(g, DEFAULT_STATE), `相似度 ${Math.round(similarity(d) * 100)}%`);
-        return el("li", {}, tile);
-      }),
-    );
+    if (run !== lensRun) return;
+    lensTop = rank(index, describe(img.px, img.w, img.h), 48);
+    renderLens();
     ui.lensNote.textContent = "按相似度排列。截图只框住浮印本身时结果最准确。";
   } catch {
     indexReady = null;
+    if (run !== lensRun) return;
     ui.lensNote.textContent = "这张图片无法读取，请换一张。";
   }
 }
 
+/** 以图搜索的结果铺满三行：按当前列数取前几名。 */
+function lensColumns() {
+  return getComputedStyle(ui.lensGrid).gridTemplateColumns.split(" ").filter(Boolean).length || 1;
+}
+function renderLens() {
+  ui.lensGrid.replaceChildren(
+    ...lensTop.slice(0, lensColumns() * 3).map(({ i, d }) => {
+      const g = glyphs[i];
+      const tile = tileButton(g);
+      paintTile(tile, g, bestWay(g, DEFAULT_STATE), `相似度 ${Math.round(similarity(d) * 100)}%`);
+      return el("li", {}, tile);
+    }),
+  );
+}
+
 function closeLens() {
+  lensRun++;
+  lensTop = [];
   ui.lens.hidden = true;
   ui.lensGrid.replaceChildren();
   URL.revokeObjectURL(lensUrl);
@@ -552,6 +601,7 @@ function bind() {
   let lastSize = 0;
   addEventListener("resize", () => {
     for (const m of Object.values(menus)) if (m.pop.matches(":popover-open")) placePop(m);
+    if (lensTop.length && !ui.lens.hidden && ui.lensGrid.childElementCount !== Math.min(lensTop.length, lensColumns() * 3)) renderLens();
     const size = pageSize();
     if (!glyphs.length || size === lastSize) return;
     const first = (state.page - 1) * lastSize;
@@ -601,7 +651,17 @@ function bind() {
     const tile = e.target.closest(".tile[data-id], .pin[data-id]");
     if (tile) return openDetail(tile.dataset.id, { from: tile });
     const c = e.target.closest("[data-copy]");
-    if (c) return copy(c.dataset.copy, `已复制兑换码 ${c.dataset.copy}`);
+    if (c) {
+      // 按钮本身也变成“已复制”，一眼能看到
+      c.classList.add("done");
+      c.replaceChildren(icon("check"), "已复制");
+      clearTimeout(c.doneTimer);
+      c.doneTimer = setTimeout(() => {
+        c.classList.remove("done");
+        c.replaceChildren("复制");
+      }, 1600);
+      return copy(c.dataset.copy, `已复制兑换码 ${c.dataset.copy}`);
+    }
   });
 
   ui.detail.addEventListener("click", (e) => {
@@ -620,8 +680,18 @@ function bind() {
 
   document.addEventListener("keydown", (e) => {
     if (ui.detail.open) {
-      if (e.key === "ArrowLeft") step(-1);
-      if (e.key === "ArrowRight") step(1);
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      // 焦点在底色选项上时，方向键切换底色
+      const group = e.target.closest?.(".backdrops");
+      if (group) {
+        e.preventDefault();
+        const items = [...group.children];
+        const next = items[(items.indexOf(e.target) + (e.key === "ArrowRight" ? 1 : items.length - 1)) % items.length];
+        next.focus();
+        next.click();
+        return;
+      }
+      step(e.key === "ArrowLeft" ? -1 : 1);
       return;
     }
     const typing = e.target.closest?.("input, textarea, select, [contenteditable]");
@@ -693,6 +763,12 @@ async function start() {
     buildCollage();
     render();
     syncFromHash();
+    // 页面一直开着时，过了截止时间的途径要变成已结束
+    const recheck = () => {
+      if (refreshStatus(glyphs)) render();
+    };
+    setInterval(recheck, 5 * 60 * 1000);
+    document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && recheck());
   } catch {
     ui.state.textContent = "浮印数据没有载入成功，请刷新页面重试。";
   }

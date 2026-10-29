@@ -43,6 +43,9 @@ test("限时活动按日期判断状态", () => {
   assert.equal(statusOf({ status: "limited", until: "2026-10-01T00:00:00Z" }, NOW), "ended");
   assert.equal(statusOf({ status: "limited", from: "2026-11-01T00:00:00Z" }, NOW), "upcoming");
   assert.equal(statusOf({ status: "limited", until: "2026-11-02T16:00:00Z" }, NOW), "limited");
+  // 只写日期的截止时间当天仍可获取
+  assert.equal(statusOf({ status: "limited", until: "2026-10-29" }, NOW + 20 * 3600e3), "limited");
+  assert.equal(statusOf({ status: "limited", until: "2026-10-28" }, NOW), "ended");
 });
 
 test("搜索中英文名和兑换码", () => {

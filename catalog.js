@@ -20,7 +20,7 @@ export const STATUS_LABEL = { now: "当前可获取", limited: "限时开放", r
 export const CHANNELS = ["兑换码", "游戏商城", "商人兑换", "虚空商人", "午夜电波", "节日活动", "行动与活动", "任务与挑战", "初始与登录", "创作者", "Prime 礼包", "TennoCon", "礼包与周边", "专属", "其他"];
 
 /** 推荐顺序里排在最前的精选浮印。 */
-export const FEATURED = ["g-9c5ecfc51e6a", "g-9316489041bc", "g-493ba46d1bca", "g-951e96c4f3e5", "g-db711b8f330a", "g-2d95f88f35aa", "g-9d5231478c56", "g-82e7631cf29d", "g-cfbebf1328ad", "g-4230d01053d9", "g-9941ca57c59d", "g-5a1324536cf2"];
+export const FEATURED = ["g-9c5ecfc51e6a", "g-9316489041bc", "g-493ba46d1bca", "g-951e96c4f3e5", "g-db711b8f330a", "g-4c572efb020d", "g-9d5231478c56", "g-82e7631cf29d", "g-cfbebf1328ad", "g-4230d01053d9", "g-9941ca57c59d", "g-5a1324536cf2"];
 
 export const SORTS = [
   { key: "best", label: "推荐顺序" },
@@ -34,11 +34,28 @@ const collator = new Intl.Collator("zh-CN", { numeric: true, sensitivity: "base"
 
 export const fold = (s) => String(s ?? "").normalize("NFKC").toLowerCase().replace(/\s+/g, "");
 
+/** 只写了日期的截止时间算到当天结束（UTC）。 */
+const deadline = (s) => Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(s) ? `${s}T23:59:59.999Z` : s);
+
 /** 按日期算出的当前状态：限时活动过期即结束，未开始即将开放。 */
 export function statusOf(way, now = Date.now()) {
-  if (way.until && Date.parse(way.until) < now) return "ended";
+  if (way.until && deadline(way.until) < now) return "ended";
   if (way.from && Date.parse(way.from) > now) return "upcoming";
   return way.status;
+}
+
+/** 页面开着时日期会过，重新算一遍每条途径的状态；有变化时返回 true。 */
+export function refreshStatus(glyphs, now = Date.now()) {
+  let changed = false;
+  for (const g of glyphs)
+    for (const w of g.ways) {
+      const live = statusOf(w, now);
+      if (live !== w.live) {
+        w.live = live;
+        changed = true;
+      }
+    }
+  return changed;
 }
 
 export function prepare(data, now = Date.now()) {
