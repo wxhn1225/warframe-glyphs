@@ -1,4 +1,4 @@
-import { CHANNELS, DEFAULT_STATE, FEATURED, NO_SPEND, SORTS, STATUS_LABEL, STATUSES, TIERS, bestWay, facetCount, prepare, readState, refreshStatus, results, writeState } from "./catalog.js";
+import { CHANNELS, DEFAULT_STATE, FEATURED, NO_SPEND, OWNERSHIP, SORTS, STATUS_LABEL, STATUSES, TIERS, bestWay, facetCount, prepare, readState, refreshStatus, results, writeState } from "./catalog.js";
 import { describe, rank, readIndex, similarity } from "./similar.js";
 
 const $ = (id) => document.getElementById(id);
@@ -11,6 +11,7 @@ const COSTS = [
   ...TIERS.filter((t) => t.key !== "unknown").map((t) => ({ key: t.key, label: t.label, tiers: [t.key], icon: t.key })),
 ];
 const SAVED_KEY = "warframe-glyphs:saved";
+const OWNED_KEY = "warframe-glyphs:owned";
 const THEME_KEY = "warframe-glyphs:theme";
 const DENSITY_KEY = "warframe-glyphs:density";
 const PAGE_TARGET = { cozy: 60, dense: 120 };
@@ -20,12 +21,13 @@ const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const finePointer = matchMedia("(hover: hover) and (pointer: fine)");
 
 const ui = Object.fromEntries(
-  ["q", "grid", "count", "clear", "empty", "state", "costs", "saved", "savedCount", "theme", "updated", "total", "collage", "pager", "go-nospend", "nospend-total", "gallery-title", "detail", "d-art", "d-img", "d-name", "d-en", "d-ways", "d-pos", "d-fav", "d-share", "toast", "lens", "lens-btn", "lens-file", "lens-img", "lens-note", "lens-grid", "drop"].map((id) => [
+  ["q", "grid", "count", "clear", "empty", "state", "costs", "saved", "savedCount", "theme", "updated", "total", "collage", "pager", "go-nospend", "nospend-total", "gallery-title", "detail", "d-art", "d-img", "d-name", "d-en", "d-ways", "d-pos", "d-fav", "d-own", "d-share", "toast", "lens", "lens-btn", "lens-file", "lens-img", "lens-note", "lens-grid", "drop"].map((id) => [
     id.replace(/-(\w)/g, (_, c) => c.toUpperCase()),
     $(id),
   ]),
 );
 const menus = {
+  own: { btn: $("own-btn"), label: $("own-label"), list: $("own-list"), pop: $("pop-own") },
   status: { btn: $("status-btn"), label: $("status-label"), list: $("status-list"), pop: $("pop-status") },
   channel: { btn: $("channel-btn"), label: $("channel-label"), list: $("channel-list"), pop: $("pop-channel") },
   sort: { btn: $("sort-btn"), label: $("sort-label"), list: $("sort-list"), pop: $("pop-sort") },
@@ -39,6 +41,8 @@ let current = null;
 let density = loadText(DENSITY_KEY) === "dense" ? "dense" : "cozy";
 const nodes = new Map();
 const saved = new Set(load(SAVED_KEY, []).filter((x) => typeof x === "string"));
+const owned = new Set(load(OWNED_KEY, []).filter((x) => typeof x === "string"));
+const marks = { saved, owned };
 
 function load(key, fallback) {
   try {
@@ -142,8 +146,9 @@ function tileButton(g) {
 function tileFor(g) {
   let li = nodes.get(g.id);
   if (li) return li;
-  const fav = el("button", { class: "fav", type: "button", "aria-pressed": String(saved.has(g.id)), "aria-label": `收藏 ${g.name}`, "data-fav": g.id }, icon("heart"));
-  li = el("li", {}, tileButton(g), fav);
+  const fav = el("button", { class: "fav", type: "button", "aria-pressed": String(saved.has(g.id)), "aria-label": `收藏 ${g.name}`, "data-mark": "saved", "data-id-mark": g.id }, icon("heart"));
+  const own = el("button", { class: "own", type: "button", "aria-pressed": String(owned.has(g.id)), "aria-label": `${g.name} 已获取`, "data-mark": "owned", "data-id-mark": g.id }, icon("check"));
+  li = el("li", {}, tileButton(g), own, fav);
   nodes.set(g.id, li);
   return li;
 }
@@ -173,6 +178,7 @@ function buildControls() {
   menus.status.list.append(...[{ key: "", label: "全部状态" }, ...STATUSES].map((s) => option(s.label, s.key)));
   menus.channel.list.append(...["", ...CHANNELS].map((c) => option(c || "全部渠道", c)));
   menus.sort.list.append(...SORTS.map((s) => option(s.label, s.key)));
+  menus.own.list.append(...OWNERSHIP.map((o) => option(o.label, o.key)));
   for (const b of menus.sort.list.children) b.querySelector("b").remove();
 }
 
@@ -187,7 +193,7 @@ function setState(patch) {
   render();
 }
 
-const isDefault = () => !state.q && !state.tiers.length && !state.status && !state.channel && !state.saved;
+const isDefault = () => !state.q && !state.tiers.length && !state.status && !state.channel && !state.own && !state.saved;
 
 /** 每页数量凑成整行：按当前列数把 60（小图 120）向上取整。 */
 function pageSize() {
@@ -196,7 +202,7 @@ function pageSize() {
 }
 
 function render() {
-  list = results(glyphs, state, saved);
+  list = results(glyphs, state, marks);
   ui.grid.classList.toggle("dense", density === "dense");
   const size = pageSize();
   const pages = Math.max(1, Math.ceil(list.length / size));
@@ -209,14 +215,14 @@ function render() {
   renderPager(pages);
 
   const n = num.format(list.length);
-  ui.galleryTitle.textContent = state.saved ? "我的收藏" : isDefault() ? "全部浮印" : "筛选结果";
+  ui.galleryTitle.textContent = state.saved ? "我的收藏" : state.own === "only" ? "已获取的浮印" : state.own === "hide" ? "未获取的浮印" : isDefault() ? "全部浮印" : "筛选结果";
   ui.count.textContent = list.length
     ? `共 ${n} 枚${pages > 1 ? `，当前第 ${num.format(start + 1)}–${num.format(start + shown.length)} 枚` : ""}`
     : "共 0 枚";
   ui.clear.hidden = isDefault();
   ui.empty.hidden = list.length > 0;
 
-  const count = (patch) => num.format(facetCount(glyphs, state, saved, patch));
+  const count = (patch) => num.format(facetCount(glyphs, state, marks, patch));
   const active = costKey();
   for (const b of ui.costs.children) {
     const c = COSTS.find((x) => x.key === b.dataset.cost);
@@ -233,6 +239,7 @@ function render() {
   };
   pick(menus.status, state.status, STATUSES.find((s) => s.key === state.status)?.label ?? "全部状态", (v) => count({ status: v }));
   pick(menus.channel, state.channel, state.channel || "全部渠道", (v) => count({ channel: v }));
+  pick(menus.own, state.own, state.own ? OWNERSHIP.find((o) => o.key === state.own).label : "获取情况", (v) => count({ own: v }));
   pick(menus.sort, state.sort, SORTS.find((s) => s.key === state.sort).label);
   if (document.activeElement !== ui.q && ui.q.value !== state.q) ui.q.value = state.q;
   ui.saved.setAttribute("aria-pressed", String(state.saved));
@@ -306,9 +313,7 @@ function fill(g) {
     if (current === g.id) ui.dImg.src = full.src;
   };
   full.src = `images/${g.id}.webp`;
-  const on = saved.has(g.id);
-  ui.dFav.setAttribute("aria-pressed", String(on));
-  ui.dFav.lastChild.textContent = on ? "已收藏" : "收藏";
+  for (const kind of Object.keys(MARKS)) paintMark(kind, g.id);
 
   const ways = [...g.ways].sort((a, b) => LIVE_RANK[a.live] - LIVE_RANK[b.live] || TIER_RANK[a.tier] - TIER_RANK[b.tier]);
   const open = ways.filter((w) => w.live !== "ended");
@@ -434,19 +439,32 @@ function bindTilt() {
 
 // ---------- 收藏、复制、提示 ----------
 
-function toggleSaved(id) {
-  if (saved.has(id)) saved.delete(id);
-  else saved.add(id);
-  keep(SAVED_KEY, [...saved]);
-  const on = saved.has(id);
-  nodes.get(id)?.querySelector(".fav")?.setAttribute("aria-pressed", String(on));
+// 收藏和已获取都只存在本机，按钮在卡片和详情里各有一个
+const MARKS = {
+  saved: { set: saved, key: SAVED_KEY, tile: ".fav", button: ui.dFav, on: "已收藏", off: "收藏", added: "已加入收藏", removed: "已取消收藏", filtered: () => state.saved },
+  owned: { set: owned, key: OWNED_KEY, tile: ".own", button: ui.dOwn, on: "已获取", off: "标记为已获取", added: "已标记为已获取", removed: "已取消已获取标记", filtered: () => Boolean(state.own) },
+};
+
+function paintMark(kind, id) {
+  const m = MARKS[kind];
+  const on = m.set.has(id);
+  nodes.get(id)?.querySelector(m.tile)?.setAttribute("aria-pressed", String(on));
   if (current === id) {
-    ui.dFav.setAttribute("aria-pressed", String(on));
-    ui.dFav.lastChild.textContent = on ? "已收藏" : "收藏";
+    m.button.setAttribute("aria-pressed", String(on));
+    m.button.lastChild.textContent = on ? m.on : m.off;
   }
-  if (state.saved) render();
+}
+
+function toggleMark(kind, id) {
+  const m = MARKS[kind];
+  if (m.set.has(id)) m.set.delete(id);
+  else m.set.add(id);
+  keep(m.key, [...m.set]);
+  paintMark(kind, id);
+  // 已获取的数量显示在筛选菜单里，要重画；收藏只在收藏视图里才需要
+  if (kind === "owned" || m.filtered()) render();
   else showSavedCount();
-  toast(on ? "已加入收藏" : "已取消收藏");
+  toast(m.set.has(id) ? m.added : m.removed);
 }
 
 // 窄屏只显示数字，按钮名称写全
@@ -648,8 +666,8 @@ function bind() {
   });
 
   document.addEventListener("click", (e) => {
-    const fav = e.target.closest("[data-fav]");
-    if (fav) return toggleSaved(fav.dataset.fav);
+    const mark = e.target.closest("[data-mark]");
+    if (mark) return toggleMark(mark.dataset.mark, mark.dataset.idMark);
     const tile = e.target.closest(".tile[data-id], .pin[data-id]");
     if (tile) return openDetail(tile.dataset.id, { from: tile });
     const c = e.target.closest("[data-copy]");
@@ -676,7 +694,8 @@ function bind() {
       ui.dArt.dataset.plate = bg.dataset.bg === "auto" ? (byId.get(current)?.plate ?? "") : bg.dataset.bg;
     }
   });
-  ui.dFav.addEventListener("click", () => current && toggleSaved(current));
+  ui.dFav.addEventListener("click", () => current && toggleMark("saved", current));
+  ui.dOwn.addEventListener("click", () => current && toggleMark("owned", current));
   ui.dShare.addEventListener("click", () => current && copy(`${location.origin}${location.pathname}#${current}`, "已复制链接"));
   bindTilt();
 
@@ -761,7 +780,7 @@ async function start() {
     ui.total.textContent = num.format(glyphs.length);
     ui.updated.textContent = `收录 ${num.format(glyphs.length)} 枚浮印，更新于 ${y} 年 ${m} 月 ${d} 日`;
     ui.state.hidden = true;
-    ui.nospendTotal.textContent = num.format(facetCount(glyphs, DEFAULT_STATE, saved, { tiers: NO_SPEND }));
+    ui.nospendTotal.textContent = num.format(facetCount(glyphs, DEFAULT_STATE, marks, { tiers: NO_SPEND }));
     buildCollage();
     render();
     syncFromHash();

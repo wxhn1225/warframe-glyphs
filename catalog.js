@@ -17,6 +17,13 @@ export const STATUSES = [
 ];
 export const STATUS_LABEL = { now: "当前可获取", limited: "限时开放", rotating: "周期开放", upcoming: "即将开放", ended: "已结束", unknown: "状态未知" };
 
+/** 按自己是否已获取筛选，标记存在本机。 */
+export const OWNERSHIP = [
+  { key: "", label: "全部" },
+  { key: "hide", label: "未获取" },
+  { key: "only", label: "已获取" },
+];
+
 export const CHANNELS = ["兑换码", "游戏商城", "商人兑换", "虚空商人", "午夜电波", "节日活动", "行动与活动", "任务与挑战", "初始与登录", "创作者", "Prime 礼包", "TennoCon", "礼包与周边", "专属", "其他"];
 
 /** 推荐顺序里排在最前的精选浮印。 */
@@ -74,10 +81,15 @@ export function wayMatches(way, state) {
   return true;
 }
 
-/** 判断浮印是否符合条件；搜索词只拆分一次。 */
-export function matcher(state, saved) {
+/** 判断浮印是否符合条件；`marks` 是本机的收藏和已获取标记，搜索词只拆分一次。 */
+export function matcher(state, marks) {
   const words = String(state.q ?? "").normalize("NFKC").toLowerCase().split(/\s+/).filter(Boolean).map(fold);
-  return (g) => (!state.saved || saved.has(g.id)) && words.every((w) => g.search.includes(w)) && g.ways.some((w) => wayMatches(w, state));
+  return (g) =>
+    (!state.saved || marks.saved.has(g.id)) &&
+    (state.own !== "hide" || !marks.owned.has(g.id)) &&
+    (state.own !== "only" || marks.owned.has(g.id)) &&
+    words.every((w) => g.search.includes(w)) &&
+    g.ways.some((w) => wayMatches(w, state));
 }
 
 /** 卡片上显示的途径：先看符合筛选的，再挑最容易拿到、最便宜的。 */
@@ -86,8 +98,8 @@ export function bestWay(g, state) {
   return [...(fit.length ? fit : g.ways)].sort((a, b) => STATUS_RANK[a.live] - STATUS_RANK[b.live] || TIER_RANK[a.tier] - TIER_RANK[b.tier])[0];
 }
 
-export function results(glyphs, state, saved) {
-  const list = glyphs.filter(matcher(state, saved));
+export function results(glyphs, state, marks) {
+  const list = glyphs.filter(matcher(state, marks));
   if (state.sort === "name") return list.sort((a, b) => collator.compare(a.name, b.name));
   if (state.sort === "en") return list.sort((a, b) => collator.compare(a.en, b.en));
   const rank = new Map(list.map((g) => {
@@ -99,23 +111,24 @@ export function results(glyphs, state, saved) {
 }
 
 /** 某个选项单独生效时的数量，其他条件保持不变。 */
-export function facetCount(glyphs, state, saved, patch) {
-  const fits = matcher({ ...state, ...patch }, saved);
+export function facetCount(glyphs, state, marks, patch) {
+  const fits = matcher({ ...state, ...patch }, marks);
   let n = 0;
   for (const g of glyphs) if (fits(g)) n++;
   return n;
 }
 
-export const DEFAULT_STATE = { q: "", tiers: [], status: "", channel: "", saved: false, sort: "best", page: 1 };
+export const DEFAULT_STATE = { q: "", tiers: [], status: "", channel: "", own: "", saved: false, sort: "best", page: 1 };
 
 export function readState(search) {
   const p = new URLSearchParams(search);
   const tiers = (p.get("cost") ?? "").split(",").filter((t) => t in TIER_RANK);
   const status = STATUSES.some((s) => s.key === p.get("status")) ? p.get("status") : "";
   const channel = CHANNELS.includes(p.get("channel")) ? p.get("channel") : "";
+  const own = OWNERSHIP.some((o) => o.key && o.key === p.get("own")) ? p.get("own") : "";
   const sort = SORTS.some((s) => s.key === p.get("sort")) ? p.get("sort") : "best";
   const page = Math.max(1, Math.min(999, Number.parseInt(p.get("page") ?? "", 10) || 1));
-  return { q: (p.get("q") ?? "").slice(0, 120), tiers: [...new Set(tiers)], status, channel, saved: p.get("saved") === "1", sort, page };
+  return { q: (p.get("q") ?? "").slice(0, 120), tiers: [...new Set(tiers)], status, channel, own, saved: p.get("saved") === "1", sort, page };
 }
 
 export function writeState(state) {
@@ -124,6 +137,7 @@ export function writeState(state) {
   if (state.tiers.length) p.set("cost", TIERS.map((t) => t.key).filter((k) => state.tiers.includes(k)).join(","));
   if (state.status) p.set("status", state.status);
   if (state.channel) p.set("channel", state.channel);
+  if (state.own) p.set("own", state.own);
   if (state.saved) p.set("saved", "1");
   if (state.sort !== "best") p.set("sort", state.sort);
   if (state.page > 1) p.set("page", String(state.page));

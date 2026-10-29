@@ -86,6 +86,10 @@
       <div class="costs" id="costs" role="radiogroup" aria-label="获取方式"></div>
       <div class="menus">
         <div class="menu">
+          <button class="menu-btn" type="button" popovertarget="pop-own" id="own-btn"><span id="own-label">获取情况</span><svg aria-hidden="true"><use href="#i-chev"/></svg></button>
+          <div id="pop-own" class="pop" popover><div class="pop-list" id="own-list" role="radiogroup" aria-label="是否已获取"></div></div>
+        </div>
+        <div class="menu">
           <button class="menu-btn" type="button" popovertarget="pop-status" id="status-btn"><span id="status-label">全部状态</span><svg aria-hidden="true"><use href="#i-chev"/></svg></button>
           <div id="pop-status" class="pop" popover><div class="pop-list" id="status-list" role="radiogroup" aria-label="开放状态"></div></div>
         </div>
@@ -153,6 +157,7 @@
         <h2 id="d-name"></h2>
         <p id="d-en" lang="en"></p>
         <div class="info-actions">
+          <button id="d-own" class="soft owned" type="button" aria-pressed="false"><svg aria-hidden="true"><use href="#i-check"/></svg><span>标记为已获取</span></button>
           <button id="d-fav" class="soft" type="button" aria-pressed="false"><svg aria-hidden="true"><use href="#i-heart"/></svg><span>收藏</span></button>
           <button id="d-share" class="soft" type="button"><svg aria-hidden="true"><use href="#i-link"/></svg><span>复制链接</span></button>
         </div>

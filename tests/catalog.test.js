@@ -6,7 +6,7 @@ import { DEFAULT_STATE, bestWay, facetCount, prepare, readState, results, status
 const data = JSON.parse(readFileSync(new URL("../data/glyphs.json", import.meta.url), "utf8"));
 const NOW = Date.parse("2026-10-29T00:00:00Z");
 const glyphs = prepare(data, NOW);
-const none = new Set();
+const none = { saved: new Set(), owned: new Set() };
 const find = (name) => glyphs.find((g) => g.name === name);
 
 test("每枚浮印都有编号、名称和至少一条获取方式", () => {
@@ -55,6 +55,15 @@ test("搜索中英文名和兑换码", () => {
   assert.ok(q("ADMIRALBAHROO").length >= 1);
 });
 
+test("按是否已获取筛选", () => {
+  const marks = { saved: new Set(), owned: new Set(glyphs.slice(0, 5).map((g) => g.id)) };
+  const n = (own) => results(glyphs, { ...DEFAULT_STATE, own }, marks).length;
+  assert.equal(n("only"), 5);
+  assert.equal(n("hide"), glyphs.length - 5);
+  assert.equal(n(""), glyphs.length);
+  assert.equal(facetCount(glyphs, DEFAULT_STATE, marks, { own: "hide" }), glyphs.length - 5);
+});
+
 test("推荐顺序先列精选浮印", () => {
   const first = results(glyphs, DEFAULT_STATE, none).slice(0, 3).map((g) => g.en);
   assert.deepEqual(first, ["Miabyte Glyph", "Aurorastarr Glyph", "Fateful Glyph"]);
@@ -70,7 +79,7 @@ test("修正过的获取方式", () => {
 });
 
 test("地址参数来回转换不丢失", () => {
-  const state = { q: "鸟", tiers: ["resource", "free"], status: "now", channel: "商人兑换", saved: true, sort: "name", page: 3 };
+  const state = { q: "鸟", tiers: ["resource", "free"], status: "now", channel: "商人兑换", own: "hide", saved: true, sort: "name", page: 3 };
   assert.deepEqual(readState(writeState(state)), { ...state, tiers: ["free", "resource"] });
   assert.deepEqual(readState("?cost=bogus&status=x&channel=y&sort=z"), DEFAULT_STATE);
 });

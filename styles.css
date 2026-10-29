@@ -810,6 +810,49 @@ main {
   opacity: 1;
   scale: 1;
 }
+/* 已获取：卡片左上角的勾，标记后一直显示 */
+.own {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--ink);
+  opacity: 0;
+  scale: 0.9;
+  transition: opacity 0.2s, scale 0.3s var(--spring), background-color 0.2s;
+}
+.own svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 2.4;
+}
+.grid > li:hover .own,
+.own:focus-visible,
+.own[aria-pressed="true"] {
+  opacity: 1;
+  scale: 1;
+}
+.own[aria-pressed="true"] {
+  background: var(--free);
+  color: var(--bg);
+}
+.soft.owned[aria-pressed="true"] {
+  background: var(--free);
+  color: var(--bg);
+}
+.soft.owned[aria-pressed="true"] svg {
+  fill: none;
+}
 .fav[aria-pressed="true"] {
   color: var(--paid);
 }
@@ -849,11 +892,16 @@ main {
 .grid.dense .tile:focus-visible .cap {
   opacity: 1;
 }
-.grid.dense .fav {
+.grid.dense .fav,
+.grid.dense .own {
   top: 6px;
   right: 6px;
   width: 30px;
   height: 30px;
+}
+.grid.dense .own {
+  right: auto;
+  left: 6px;
 }
 
 /* ---------- 翻页 ---------- */
@@ -1151,6 +1199,7 @@ dialog {
 }
 .info-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 22px;
 }
@@ -1491,6 +1540,17 @@ dialog {
   .menu-btn {
     padding: 0 8px 0 12px;
     font-size: 14px;
+  }
+  .menus {
+    flex: 1 1 100%;
+    min-width: 0;
+    margin-inline: -16px;
+    padding-inline: 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .menus::-webkit-scrollbar {
+    display: none;
   }
   main {
     padding: 26px 16px 40px;
