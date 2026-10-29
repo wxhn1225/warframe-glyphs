@@ -359,9 +359,9 @@ function openDetail(id, { push = true, from = null } = {}) {
   } else show();
   const url = `${writeState(state)}#${id}`;
   if (push && !wasOpen) {
-    history.pushState({ detail: id }, "", url);
+    history.pushState({ detail: id, fromList: true }, "", url);
     pushed = true;
-  } else history.replaceState({ detail: id }, "", url);
+  } else history.replaceState({ ...history.state, detail: id }, "", url);
 }
 
 function closeDetail() {
@@ -397,8 +397,8 @@ function step(dir) {
 function syncFromHash() {
   const id = location.hash.slice(1);
   if (id && byId.has(id)) {
-    // 用前进键回到的详情是之前从列表打开时留下的记录，关闭时同样退回
-    const ours = Boolean(history.state?.detail);
+    // 从列表打开时留下的记录（用前进键回来或刷新后仍在）关闭时退回列表；直接打开的链接关闭时留在本站
+    const ours = Boolean(history.state?.fromList);
     openDetail(id, { push: false });
     pushed = ours;
     return;
@@ -506,6 +506,8 @@ async function pixelsOf(file) {
 async function searchImage(file) {
   if (!file?.type.startsWith("image/")) return;
   const run = ++lensRun;
+  // 新的一张开始比对时清掉上一张的结果，失败时不会再冒出来
+  lensTop = [];
   if (ui.detail.open) closeDetail();
   URL.revokeObjectURL(lensUrl);
   lensUrl = URL.createObjectURL(file);

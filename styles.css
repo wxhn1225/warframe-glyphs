@@ -62,7 +62,7 @@
   --resource: #865a10;
   --platinum: #3a4fc4;
   --paid: #b2304f;
-  --unknown: #999aa2;
+  --unknown: #66676e;
   --scrim: rgb(30 28 26 / 0.36);
   --shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 10px 30px -12px rgb(0 0 0 / 0.18);
   --shadow-lg: 0 0 0 1px rgb(0 0 0 / 0.05), 0 50px 120px -30px rgb(0 0 0 / 0.35);
@@ -1261,7 +1261,7 @@ dialog {
 }
 .code button.done {
   background: var(--free);
-  color: #fff;
+  color: var(--bg);
 }
 .way-actions a {
   display: inline-flex;
@@ -1368,7 +1368,6 @@ dialog {
   width: 18px;
   height: 18px;
   stroke-width: 2.4;
-  color: var(--free);
 }
 .toast[popover]:not(:popover-open) {
   display: none;
