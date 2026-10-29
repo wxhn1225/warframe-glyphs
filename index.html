@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>浮印图鉴 · Warframe</title>
+  <meta name="description" content="Warframe 全部浮印的获取方式，按免费、游戏资源、白金与付费购买分类，支持以图搜索。">
+  <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#101114">
+  <meta property="og:title" content="浮印图鉴 · Warframe">
+  <meta property="og:description" content="Warframe 全部浮印的获取方式，按免费、游戏资源、白金与付费购买分类，支持以图搜索。">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="data/glyphs.json" as="fetch" type="application/json" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    try {
+      const t = localStorage.getItem("warframe-glyphs:theme");
+      if (t === "light") document.documentElement.dataset.theme = t;
+    } catch {}
+  </script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#gallery">跳到浮印列表</a>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-free" viewBox="0 0 24 24"><path d="M12 3.5c.7 4.6 2.9 6.8 7.5 7.5-4.6.7-6.8 2.9-7.5 7.5-.7-4.6-2.9-6.8-7.5-7.5 4.6-.7 6.8-2.9 7.5-7.5Z"/></symbol>
+    <symbol id="i-resource" viewBox="0 0 24 24"><ellipse cx="12" cy="7.5" rx="6.5" ry="2.8"/><path d="M5.5 7.5v4.5c0 1.6 2.9 2.8 6.5 2.8s6.5-1.2 6.5-2.8V7.5"/><path d="M5.5 12v4.5c0 1.6 2.9 2.8 6.5 2.8s6.5-1.2 6.5-2.8V12"/></symbol>
+    <symbol id="i-platinum" viewBox="0 0 24 24"><path d="M8 4.5h8l3.8 4.9L12 19.5 4.2 9.4Z"/><path d="M4.2 9.4h15.6M10 4.5 8.6 9.4 12 19.5l3.4-10.1L14 4.5"/></symbol>
+    <symbol id="i-paid" viewBox="0 0 24 24"><rect x="3.5" y="6" width="17" height="12" rx="2.5"/><path d="M3.5 10.2h17M7.2 14.6h3.6"/></symbol>
+    <symbol id="i-unknown" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M9.9 9.8a2.2 2.2 0 1 1 3 2c-.6.3-.9.8-.9 1.4v.3"/><path d="M12 16.3v.1"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 19.5s-7-4.1-7-9.3A4 4 0 0 1 12 7.8a4 4 0 0 1 7 2.4c0 5.2-7 9.3-7 9.3Z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m15.5 15.5 4.5 4.5"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3.8" y="5.3" width="16.4" height="13.4" rx="3"/><circle cx="9" cy="10" r="1.5"/><path d="m5.3 17 4.6-4 2.9 2.4 3.1-3.2 3.3 3.6"/></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24"><path d="m14.5 5.5-6.5 6.5 6.5 6.5"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path d="m9.5 5.5 6.5 6.5-6.5 6.5"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6.5 6.5 11 11M17.5 6.5l-11 11"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a3.8 3.8 0 0 0 5.4 0l3.1-3.1a3.8 3.8 0 0 0-5.4-5.4l-1 1M14 10a3.8 3.8 0 0 0-5.4 0l-3.1 3.1a3.8 3.8 0 0 0 5.4 5.4l1-1"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="m7.5 10 4.5 4.5 4.5-4.5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m6 12.5 4 4 8-9"/></symbol>
+    <symbol id="i-out" viewBox="0 0 24 24"><path d="M13.5 5.5h5v5M18.5 5.5l-7.5 7.5M10 6.5H7.5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V14"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.8"/><rect x="13" y="4" width="7" height="7" rx="1.8"/><rect x="4" y="13" width="7" height="7" rx="1.8"/><rect x="13" y="13" width="7" height="7" rx="1.8"/></symbol>
+    <symbol id="i-dense" viewBox="0 0 24 24"><rect x="4" y="4" width="4.2" height="4.2" rx="1"/><rect x="9.9" y="4" width="4.2" height="4.2" rx="1"/><rect x="15.8" y="4" width="4.2" height="4.2" rx="1"/><rect x="4" y="9.9" width="4.2" height="4.2" rx="1"/><rect x="9.9" y="9.9" width="4.2" height="4.2" rx="1"/><rect x="15.8" y="9.9" width="4.2" height="4.2" rx="1"/><rect x="4" y="15.8" width="4.2" height="4.2" rx="1"/><rect x="9.9" y="15.8" width="4.2" height="4.2" rx="1"/><rect x="15.8" y="15.8" width="4.2" height="4.2" rx="1"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19 14.6A7.5 7.5 0 0 1 9.4 5a7.5 7.5 0 1 0 9.6 9.6Z"/></symbol>
+  </svg>
+
+  <header class="bar">
+    <a class="brand" href="./" aria-label="浮印图鉴，回到顶部">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3 29 16 16 29 3 16Z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M16 10.5 21.5 16 16 21.5 10.5 16Z" fill="currentColor"/></svg>
+      <span>浮印图鉴</span>
+    </a>
+    <div class="bar-end">
+      <button id="saved" class="soft" type="button" aria-pressed="false">
+        <svg aria-hidden="true"><use href="#i-heart"/></svg><span class="soft-label">收藏</span><b id="savedCount">0</b>
+      </button>
+      <button id="theme" class="soft round" type="button" aria-label="切换深浅色"><svg aria-hidden="true"><use href="#i-moon"/></svg></button>
+    </div>
+  </header>
+
+  <section class="hero" aria-labelledby="title">
+    <div class="hero-copy">
+      <h1 id="title">方寸浮印，<span>各有来处。</span></h1>
+      <p class="lede">收录 Warframe 全部 <b id="total">1,721</b> 枚浮印，以及每一枚的获取方式与价格。</p>
+      <div class="search" role="search">
+        <svg aria-hidden="true"><use href="#i-search"/></svg>
+        <label class="sr" for="q">搜索浮印</label>
+        <input id="q" type="search" placeholder="名称、英文名、兑换码或获取方式" autocomplete="off" spellcheck="false" enterkeyhint="search">
+        <kbd aria-hidden="true">/</kbd>
+        <button id="lens-btn" class="lens-btn" type="button" aria-label="以图搜索" title="以图搜索：选择图片，或直接粘贴、拖入截图">
+          <svg aria-hidden="true"><use href="#i-image"/></svg>
+        </button>
+      </div>
+      <div class="hero-links">
+        <a class="cta" href="#gallery">浏览全部浮印</a>
+        <button id="go-nospend" class="cta ghost-cta" type="button">只看无需付费的 <b id="nospend-total">667</b> 枚</button>
+      </div>
+      <p class="hint">支持以图搜索：直接粘贴截图，或把图片拖进页面。</p>
+      <input id="lens-file" type="file" accept="image/*" hidden>
+    </div>
+    <div class="collage" id="collage" aria-label="精选浮印"></div>
+  </section>
+
+  <nav class="tabs" aria-label="筛选">
+    <div class="tabs-inner">
+      <div class="costs" id="costs" role="radiogroup" aria-label="获取方式"></div>
+      <div class="menus">
+        <div class="menu">
+          <button class="menu-btn" type="button" popovertarget="pop-status" id="status-btn"><span id="status-label">全部状态</span><svg aria-hidden="true"><use href="#i-chev"/></svg></button>
+          <div id="pop-status" class="pop" popover><div class="pop-list" id="status-list" role="radiogroup" aria-label="开放状态"></div></div>
+        </div>
+        <div class="menu">
+          <button class="menu-btn" type="button" popovertarget="pop-channel" id="channel-btn"><span id="channel-label">全部渠道</span><svg aria-hidden="true"><use href="#i-chev"/></svg></button>
+          <div id="pop-channel" class="pop" popover><div class="pop-list" id="channel-list" role="radiogroup" aria-label="渠道"></div></div>
+        </div>
+        <div class="menu">
+          <button class="menu-btn" type="button" popovertarget="pop-sort" id="sort-btn"><span id="sort-label">推荐顺序</span><svg aria-hidden="true"><use href="#i-chev"/></svg></button>
+          <div id="pop-sort" class="pop" popover><div class="pop-list" id="sort-list" role="radiogroup" aria-label="排序"></div></div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main id="gallery" tabindex="-1">
+    <section id="lens" class="lens" hidden aria-labelledby="lens-title">
+      <div class="lens-head">
+        <img id="lens-img" alt="用于搜索的图片">
+        <div class="lens-text">
+          <h2 id="lens-title">以图搜索</h2>
+          <p id="lens-note"></p>
+        </div>
+        <button id="lens-again" class="soft" type="button">换一张</button>
+        <button id="lens-close" class="soft round" type="button" aria-label="关闭以图搜索"><svg aria-hidden="true"><use href="#i-close"/></svg></button>
+      </div>
+      <ol id="lens-grid" class="lens-grid"></ol>
+    </section>
+
+    <div class="gallery-head">
+      <div>
+        <h2 id="gallery-title">全部浮印</h2>
+        <p id="count" aria-live="polite"></p>
+      </div>
+      <button id="clear" class="link" type="button" hidden>清除筛选</button>
+      <div class="density" role="radiogroup" aria-label="显示密度">
+        <button type="button" role="radio" data-density="cozy" aria-checked="true" aria-label="大图"><svg aria-hidden="true"><use href="#i-grid"/></svg></button>
+        <button type="button" role="radio" data-density="dense" aria-checked="false" aria-label="小图"><svg aria-hidden="true"><use href="#i-dense"/></svg></button>
+      </div>
+    </div>
+
+    <ul id="grid" class="grid" aria-labelledby="gallery-title"></ul>
+    <nav id="pager" class="pager" aria-label="翻页"></nav>
+    <div id="empty" class="empty" hidden>
+      <p>没有符合这些条件的浮印。</p>
+      <button class="soft" type="button" data-clear>清除筛选</button>
+    </div>
+    <div id="state" class="empty" role="status">正在载入浮印…</div>
+  </main>
+
+  <footer class="foot"><p id="updated"></p></footer>
+
+  <dialog id="detail" aria-labelledby="d-name">
+    <div class="viewer">
+      <figure class="stage">
+        <div id="d-art" class="art"><img id="d-img" alt="" width="512" height="512"><span class="glare" aria-hidden="true"></span></div>
+        <div class="backdrops" role="radiogroup" aria-label="预览底色">
+          <button type="button" role="radio" data-bg="auto" aria-checked="true">原图</button>
+          <button type="button" role="radio" data-bg="dark" aria-checked="false">深色</button>
+          <button type="button" role="radio" data-bg="light" aria-checked="false">浅色</button>
+        </div>
+      </figure>
+      <div class="info">
+        <p id="d-pos" class="pos"></p>
+        <h2 id="d-name"></h2>
+        <p id="d-en" lang="en"></p>
+        <div class="info-actions">
+          <button id="d-fav" class="soft" type="button" aria-pressed="false"><svg aria-hidden="true"><use href="#i-heart"/></svg><span>收藏</span></button>
+          <button id="d-share" class="soft" type="button"><svg aria-hidden="true"><use href="#i-link"/></svg><span>复制链接</span></button>
+        </div>
+        <div id="d-ways" class="ways"></div>
+      </div>
+      <button class="soft round close" type="button" data-close aria-label="关闭"><svg aria-hidden="true"><use href="#i-close"/></svg></button>
+    </div>
+    <button class="soft round step prev" type="button" data-step="-1" aria-label="上一枚" aria-keyshortcuts="ArrowLeft"><svg aria-hidden="true"><use href="#i-left"/></svg></button>
+    <button class="soft round step next" type="button" data-step="1" aria-label="下一枚" aria-keyshortcuts="ArrowRight"><svg aria-hidden="true"><use href="#i-right"/></svg></button>
+  </dialog>
+
+  <div id="drop" class="drop" hidden><p><svg aria-hidden="true"><use href="#i-image"/></svg>松开即可按这张图片搜索</p></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
