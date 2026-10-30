@@ -27,7 +27,7 @@ export const OWNERSHIP = [
 export const CHANNELS = ["兑换码", "游戏商城", "商人兑换", "虚空商人", "午夜电波", "节日活动", "行动与活动", "任务与挑战", "初始与登录", "创作者", "Prime 礼包", "TennoCon", "礼包与周边", "专属", "其他"];
 
 /** 推荐顺序里排在最前的精选浮印。 */
-export const FEATURED = ["g-9c5ecfc51e6a", "g-9316489041bc", "g-493ba46d1bca", "g-951e96c4f3e5", "g-db711b8f330a", "g-4c572efb020d", "g-9d5231478c56", "g-82e7631cf29d", "g-cfbebf1328ad", "g-4230d01053d9", "g-9941ca57c59d", "g-5a1324536cf2"];
+export const FEATURED = ["g-9c5ecfc51e6a", "g-9316489041bc", "g-493ba46d1bca", "g-5db448dd40ae", "g-db711b8f330a", "g-4c572efb020d", "g-9d5231478c56", "g-82e7631cf29d", "g-cfbebf1328ad", "g-4230d01053d9", "g-9941ca57c59d", "g-5a1324536cf2"];
 
 export const SORTS = [
   { key: "best", label: "推荐顺序" },
