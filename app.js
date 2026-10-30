@@ -130,8 +130,11 @@ function priceOf(w) {
   if (w.tier === "platinum" && /^\d+ 白金$/.test(w.cost ?? "")) return w.cost;
   return TIER_LABEL[w.tier];
 }
+const CHANNEL_NOTE = { ended: "已结束", rotating: "周期开放", unknown: "状态未知" };
 function channelOf(w) {
-  return w.live === "ended" ? `${w.channel}，已结束` : w.live === "rotating" ? `${w.channel}，周期开放` : w.channel;
+  // 待补充的途径本身就没有定论，不再重复注明状态未知
+  const note = w.tier === "unknown" && w.live === "unknown" ? null : CHANNEL_NOTE[w.live];
+  return note ? `${w.channel}，${note}` : w.channel;
 }
 
 function tileButton(g) {

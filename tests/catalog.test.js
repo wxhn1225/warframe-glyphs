@@ -76,6 +76,9 @@ test("修正过的获取方式", () => {
   assert.ok(find("诺拉·夜骷髅女士浮印").ways.some((w) => w.cost === '20 "母亲"石印'));
   assert.ok(find("常见秃鹰浮印").ways[0].how.includes("第 5 级"));
   for (const name of ["基础爆炸浮印", "Samat 浮印", "社区 Citrine 浮印"]) assert.ok(find(name).ways.some((w) => w.cost === "20 白金"), name);
+  // 卡片上显示当前能拿到的赞助途径，而不是状态未知的免费途径
+  assert.equal(bestWay(find("Juno 浮印"), DEFAULT_STATE).tier, "paid");
+  for (const name of ["Miabyte 浮印", "Aurorastarr 浮印", "Fateful 浮印"]) assert.ok(find(name).ways.every((w) => w.tier !== "unknown"), name);
 });
 
 test("地址参数来回转换不丢失", () => {
