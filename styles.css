@@ -798,17 +798,18 @@ main {
   color: var(--ink);
   opacity: 0;
   scale: 0.9;
+  pointer-events: none;
   transition: opacity 0.2s, scale 0.3s var(--spring);
 }
 .fav svg {
   width: 17px;
   height: 17px;
 }
-.grid > li:hover .fav,
 .fav:focus-visible,
 .fav[aria-pressed="true"] {
   opacity: 1;
   scale: 1;
+  pointer-events: auto;
 }
 /* 已获取：卡片左上角的勾，标记后一直显示 */
 .own {
@@ -829,6 +830,7 @@ main {
   color: var(--ink);
   opacity: 0;
   scale: 0.9;
+  pointer-events: none;
   transition: opacity 0.2s, scale 0.3s var(--spring), background-color 0.2s;
 }
 .own svg {
@@ -836,11 +838,20 @@ main {
   height: 17px;
   stroke-width: 2.4;
 }
-.grid > li:hover .own,
 .own:focus-visible,
 .own[aria-pressed="true"] {
   opacity: 1;
   scale: 1;
+  pointer-events: auto;
+}
+/* 能悬停的设备上指针移到卡片才露出按钮；触屏上看不见的按钮不接收点按 */
+@media (hover: hover) {
+  .grid > li:hover .fav,
+  .grid > li:hover .own {
+    opacity: 1;
+    scale: 1;
+    pointer-events: auto;
+  }
 }
 .own[aria-pressed="true"] {
   background: var(--free);

@@ -40,8 +40,8 @@ let state = readState(location.search);
 let current = null;
 let density = loadText(DENSITY_KEY) === "dense" ? "dense" : "cozy";
 const nodes = new Map();
-const saved = new Set(load(SAVED_KEY, []).filter((x) => typeof x === "string"));
-const owned = new Set(load(OWNED_KEY, []).filter((x) => typeof x === "string"));
+const saved = readMarks(SAVED_KEY);
+const owned = readMarks(OWNED_KEY);
 const marks = { saved, owned };
 
 function load(key, fallback) {
@@ -51,6 +51,9 @@ function load(key, fallback) {
   } catch {
     return fallback;
   }
+}
+function readMarks(key) {
+  return new Set(load(key, []).filter((x) => typeof x === "string"));
 }
 function loadText(key) {
   try {
@@ -204,6 +207,16 @@ function pageSize() {
   return cols * Math.ceil(PAGE_TARGET[density] / cols);
 }
 
+// 当前这一页实际用的每页数量
+let shownSize = 0;
+
+/** 每页数量变了（换了大小图或窗口宽度）时，仍停在原来第一枚所在的那一页。 */
+function repage() {
+  const size = pageSize();
+  if (shownSize && size !== shownSize) state = { ...state, page: Math.floor(((state.page - 1) * shownSize) / size) + 1 };
+  render();
+}
+
 function render() {
   list = results(glyphs, state, marks);
   ui.grid.classList.toggle("dense", density === "dense");
@@ -212,8 +225,11 @@ function render() {
   if (state.page > pages) state = { ...state, page: pages };
   const start = (state.page - 1) * size;
   const shown = list.slice(start, start + size);
+  shownSize = size;
   for (const g of shown) paintTile(tileFor(g).firstChild, g, bestWay(g, state));
-  ui.grid.replaceChildren(...shown.map((g) => nodes.get(g.id)));
+  // 这一页的卡片没变时不动网格，键盘焦点留在原处
+  const items = shown.map((g) => nodes.get(g.id));
+  if (items.length !== ui.grid.children.length || items.some((li, i) => ui.grid.children[i] !== li)) ui.grid.replaceChildren(...items);
   for (const b of document.querySelectorAll("[data-density]")) b.setAttribute("aria-checked", String(b.dataset.density === density));
   renderPager(pages);
 
@@ -317,27 +333,34 @@ function fill(g) {
   };
   full.src = `images/${g.id}.webp`;
   for (const kind of Object.keys(MARKS)) paintMark(kind, g.id);
+  fillWays(g);
+  updateNav();
+  ui.detail.querySelector(".info").scrollTop = 0;
+}
 
+// 获取方式按状态和花费排好，已结束的收进折叠里
+function fillWays(g) {
   const ways = [...g.ways].sort((a, b) => LIVE_RANK[a.live] - LIVE_RANK[b.live] || TIER_RANK[a.tier] - TIER_RANK[b.tier]);
   const open = ways.filter((w) => w.live !== "ended");
   const past = ways.filter((w) => w.live === "ended");
   const blocks = (open.length ? open : past).map(wayCard);
   if (open.length && past.length) blocks.push(el("details", { class: "past" }, el("summary", { text: `已结束的获取方式（${past.length}）` }), ...past.map(wayCard)));
   ui.dWays.replaceChildren(...blocks);
-
-  updateNav();
-  ui.detail.querySelector(".info").scrollTop = 0;
 }
 
 // 详情所在的位置；这一枚已不在列表里时（比如在收藏里刚取消收藏）沿用它原来的位置
 let anchor = 0;
+// 从以图搜索结果打开时，左右切换的是这些结果，而不是背后的列表
+let browse = null;
+const sequence = () => browse ?? list;
 
 function updateNav() {
-  const i = list.findIndex((x) => x.id === current);
+  const seq = sequence();
+  const i = seq.findIndex((x) => x.id === current);
   if (i >= 0) anchor = i;
-  ui.dPos.textContent = i >= 0 ? `${num.format(i + 1)} / ${num.format(list.length)}` : `共 ${num.format(list.length)} 枚`;
+  ui.dPos.textContent = i >= 0 ? `${num.format(i + 1)} / ${num.format(seq.length)}` : `共 ${num.format(seq.length)} 枚`;
   ui.detail.querySelector(".prev").disabled = anchor <= 0;
-  ui.detail.querySelector(".next").disabled = i >= 0 ? anchor >= list.length - 1 : anchor >= list.length;
+  ui.detail.querySelector(".next").disabled = i >= 0 ? anchor >= seq.length - 1 : anchor >= seq.length;
 }
 
 // 从列表打开的详情占一条历史记录，关闭时退回；从链接直接打开的不占
@@ -348,6 +371,7 @@ function openDetail(id, { push = true, from = null } = {}) {
   const g = byId.get(id);
   if (!g) return;
   const wasOpen = ui.detail.open;
+  if (!wasOpen) browse = from?.closest("#lens-grid") ? lensShown : null;
   current = id;
   const show = () => {
     fill(g);
@@ -384,17 +408,20 @@ ui.detail.addEventListener("close", () => {
   }
   pushed = false;
   closingFromHistory = false;
-  const tile = id && nodes.get(id)?.firstChild;
+  const tile = id && (browse ? ui.lensGrid.querySelector(`.tile[data-id="${id}"]`) : nodes.get(id)?.firstChild);
+  browse = null;
   if (tile?.isConnected) tile.focus({ preventScroll: true });
 });
 
 // 在详情里切换时，背后的列表跟着翻到同一页，关闭后焦点落在这一枚上
 function step(dir) {
-  const i = list.findIndex((x) => x.id === current);
+  const seq = sequence();
+  const i = seq.findIndex((x) => x.id === current);
   const target = i >= 0 ? i + dir : dir > 0 ? anchor : anchor - 1;
-  const next = list[target];
+  const next = seq[target];
   if (!next) return;
   openDetail(next.id, { push: false });
+  if (browse) return;
   const page = Math.floor(target / pageSize()) + 1;
   if (page !== state.page) {
     state = { ...state, page };
@@ -458,16 +485,33 @@ function paintMark(kind, id) {
   }
 }
 
+/** 换成存储里的最新列表，只重画有变化的几枚；有变化时返回 true。 */
+function adoptMarks(kind, next) {
+  const m = MARKS[kind];
+  const changed = [...new Set([...m.set, ...next])].filter((id) => m.set.has(id) !== next.has(id));
+  m.set.clear();
+  for (const id of next) m.set.add(id);
+  for (const id of changed) paintMark(kind, id);
+  return changed.length > 0;
+}
+
+// 已获取的数量显示在筛选菜单里，要重画；收藏只在收藏视图里才需要
+function afterMarks(kind) {
+  if (kind === "owned" || MARKS[kind].filtered()) render();
+  else showSavedCount();
+}
+
 function toggleMark(kind, id) {
   const m = MARKS[kind];
-  if (m.set.has(id)) m.set.delete(id);
-  else m.set.add(id);
-  keep(m.key, [...m.set]);
-  paintMark(kind, id);
-  // 已获取的数量显示在筛选菜单里，要重画；收藏只在收藏视图里才需要
-  if (kind === "owned" || m.filtered()) render();
-  else showSavedCount();
-  toast(m.set.has(id) ? m.added : m.removed);
+  // 先读回存储里的最新列表，只改这一枚，其他标签页刚做的标记不会被覆盖
+  const next = readMarks(m.key);
+  const on = !m.set.has(id);
+  if (on) next.add(id);
+  else next.delete(id);
+  keep(m.key, [...next]);
+  adoptMarks(kind, next);
+  afterMarks(kind);
+  toast(on ? m.added : m.removed);
 }
 
 // 窄屏只显示数字，按钮名称写全
@@ -477,8 +521,8 @@ function showSavedCount() {
 }
 
 let toastTimer = 0;
-function toast(text) {
-  ui.toast.replaceChildren(icon("check"), text);
+function toast(text, ok = true) {
+  ui.toast.replaceChildren(icon(ok ? "check" : "close"), text);
   // 每次重新放到最上层，压在已打开的详情上面
   if (ui.toast.showPopover) {
     if (ui.toast.matches(":popover-open")) ui.toast.hidePopover();
@@ -488,18 +532,23 @@ function toast(text) {
   toastTimer = setTimeout(() => (ui.toast.hidePopover ? ui.toast.hidePopover() : ui.toast.classList.remove("show")), 1800);
 }
 
-async function copy(text, done) {
+/** 复制文字，返回是否成功。详情打开时页面其余部分不可操作，备用的输入框放进详情里。 */
+async function copy(text) {
   try {
     await navigator.clipboard.writeText(text);
+    return true;
   } catch {
     const area = el("textarea", { readonly: true, style: "position:fixed;opacity:0" });
     area.value = text;
-    document.body.append(area);
+    (ui.detail.open ? ui.detail : document.body).append(area);
     area.select();
-    document.execCommand("copy");
+    let ok = false;
+    try {
+      ok = document.execCommand("copy");
+    } catch {}
     area.remove();
+    return ok;
   }
-  toast(done);
 }
 
 // ---------- 以图搜索 ----------
@@ -507,6 +556,8 @@ async function copy(text, done) {
 let indexReady = null;
 let lensUrl = "";
 let lensTop = [];
+// 当前铺在以图搜索结果里的浮印，详情从这里打开时按这个顺序切换
+let lensShown = [];
 // 连续选了几张图时，只显示最后一张的结果
 let lensRun = 0;
 const indexOnce = () => (indexReady ??= fetch("data/similar.bin").then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(r.statusText)))).then(readIndex));
@@ -555,8 +606,10 @@ function lensColumns() {
   return getComputedStyle(ui.lensGrid).gridTemplateColumns.split(" ").filter(Boolean).length || 1;
 }
 function renderLens() {
+  const top = lensTop.slice(0, lensColumns() * 3);
+  lensShown = top.map(({ i }) => glyphs[i]);
   ui.lensGrid.replaceChildren(
-    ...lensTop.slice(0, lensColumns() * 3).map(({ i, d }) => {
+    ...top.map(({ i, d }) => {
       const g = glyphs[i];
       const tile = tileButton(g);
       paintTile(tile, g, bestWay(g, DEFAULT_STATE), `相似度 ${Math.round(similarity(d) * 100)}%`);
@@ -620,19 +673,12 @@ function bind() {
       menu.pop.hidePopover();
     });
   }
-  // 窗口宽度变化让列数变了，就重新分页，仍停在原来第一枚所在的那一页
-  let lastSize = 0;
+  // 窗口宽度变化让列数变了，就重新分页
   addEventListener("resize", () => {
     for (const m of Object.values(menus)) if (m.pop.matches(":popover-open")) placePop(m);
     if (lensTop.length && !ui.lens.hidden && ui.lensGrid.childElementCount !== Math.min(lensTop.length, lensColumns() * 3)) renderLens();
-    const size = pageSize();
-    if (!glyphs.length || size === lastSize) return;
-    const first = (state.page - 1) * lastSize;
-    lastSize = size;
-    state = { ...state, page: Math.floor(first / size) + 1 };
-    render();
+    if (glyphs.length && pageSize() !== shownSize) repage();
   });
-  lastSize = pageSize();
 
   ui.saved.addEventListener("click", () => setState({ saved: !state.saved }));
   const reset = () => {
@@ -655,13 +701,10 @@ function bind() {
   for (const b of document.querySelectorAll("[data-density]"))
     b.addEventListener("click", () => {
       if (b.dataset.density === density) return;
-      // 换密度后仍停在原来第一枚所在的那一页
-      const first = (state.page - 1) * pageSize();
       density = b.dataset.density;
       keep(DENSITY_KEY, density);
       ui.grid.classList.toggle("dense", density === "dense");
-      state = { ...state, page: Math.floor(first / pageSize()) + 1 };
-      render();
+      repage();
     });
   ui.goNospend.addEventListener("click", () => {
     setState({ tiers: [...NO_SPEND] });
@@ -675,15 +718,23 @@ function bind() {
     if (tile) return openDetail(tile.dataset.id, { from: tile });
     const c = e.target.closest("[data-copy]");
     if (c) {
-      // 按钮本身也变成“已复制”，一眼能看到
-      c.classList.add("done");
-      c.replaceChildren(icon("check"), "已复制");
-      clearTimeout(c.doneTimer);
-      c.doneTimer = setTimeout(() => {
-        c.classList.remove("done");
-        c.replaceChildren("复制");
-      }, 1600);
-      return copy(c.dataset.copy, `已复制兑换码 ${c.dataset.copy}`);
+      copy(c.dataset.copy).then((ok) => {
+        if (!ok) {
+          // 复制不了时选中兑换码，方便手动复制
+          getSelection().selectAllChildren(c.previousElementSibling);
+          return toast("无法自动复制，已选中兑换码，请手动复制", false);
+        }
+        // 按钮本身也变成“已复制”，一眼能看到
+        c.classList.add("done");
+        c.replaceChildren(icon("check"), "已复制");
+        clearTimeout(c.doneTimer);
+        c.doneTimer = setTimeout(() => {
+          c.classList.remove("done");
+          c.replaceChildren("复制");
+        }, 1600);
+        toast(`已复制兑换码 ${c.dataset.copy}`);
+      });
+      return;
     }
   });
 
@@ -699,7 +750,15 @@ function bind() {
   });
   ui.dFav.addEventListener("click", () => current && toggleMark("saved", current));
   ui.dOwn.addEventListener("click", () => current && toggleMark("owned", current));
-  ui.dShare.addEventListener("click", () => current && copy(`${location.origin}${location.pathname}#${current}`, "已复制链接"));
+  ui.dShare.addEventListener("click", async () => {
+    if (!current) return;
+    const ok = await copy(`${location.origin}${location.pathname}#${current}`);
+    toast(ok ? "已复制链接" : "无法自动复制，请从地址栏复制链接", ok);
+  });
+  // 别的标签页改了收藏或已获取时，这里跟着更新
+  addEventListener("storage", (e) => {
+    for (const [kind, m] of Object.entries(MARKS)) if ((e.key === m.key || e.key === null) && adoptMarks(kind, readMarks(m.key))) afterMarks(kind);
+  });
   bindTilt();
 
   document.addEventListener("keydown", (e) => {
@@ -789,7 +848,10 @@ async function start() {
     syncFromHash();
     // 页面一直开着时，过了截止时间的途径要变成已结束
     const recheck = () => {
-      if (refreshStatus(glyphs)) render();
+      if (!refreshStatus(glyphs)) return;
+      render();
+      if (ui.detail.open) fillWays(byId.get(current));
+      if (lensTop.length && !ui.lens.hidden) renderLens();
     };
     setInterval(recheck, 5 * 60 * 1000);
     document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && recheck());
